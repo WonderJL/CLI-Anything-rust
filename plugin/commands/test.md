@@ -1,6 +1,8 @@
 # cli-anything-rs:test
 
-Run the test suite for a Rust CLI harness and report results.
+**Trust the artifact, not the exit code.** Run a harness's full test suite —
+offline units, gated real-backend E2E, and the quality gate — then report the
+honest counts. A skipped E2E is never a pass.
 
 ## Usage
 

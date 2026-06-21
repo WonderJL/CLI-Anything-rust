@@ -1,6 +1,8 @@
 # cli-anything-rs:validate
 
-Validate a Rust CLI harness against HARNESS-rs.md.
+**The contract is the product.** Audit a Rust harness against HARNESS-rs.md —
+the `--json` envelope, the security checklist, the verify-the-real-output rule —
+and report each item pass/fail with concrete evidence.
 
 ## Usage
 

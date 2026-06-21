@@ -1,7 +1,9 @@
 # cli-anything-rs:refine
 
-Expand an existing Rust CLI harness's coverage toward the software's full
-capabilities.
+**An agent-native CLI is never finished.** Widen an existing Rust harness
+toward the software's full capability surface — new command groups, real
+backend calls, the same `--json` and security contracts — without breaking
+anything that already works.
 
 ## Usage
 

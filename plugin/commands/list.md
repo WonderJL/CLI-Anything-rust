@@ -1,6 +1,8 @@
 # cli-anything-rs:list
 
-List the CLI harnesses in the cli-anything-rust workspace.
+**See the whole factory at a glance.** Enumerate the CLI harnesses in the
+workspace — version, generated `SKILL.md`, installed binary — so an agent (or
+you) knows what's already agent-native.
 
 ## Usage
 
