@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"
+members = ["crates/cli-anything-core", "crates/cli-anything-new", "crates/cli-anything-mermaid", "crates/cli-anything-inkscape"]
+
+# As additional crates land (scaffolder in Phase C, proof CLIs in Phases D/E),
+# they are appended to `members` and share the pins declared in
+# `[workspace.dependencies]` below.
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["CLI-Anything-rust contributors"]
+repository = "https://github.com/WonderJL/CLI-Anything-rust"
+rust-version = "1.89"
+
+# Shared dependency pins. Members opt in with `dep = { workspace = true }`.
+# Populated in Phase A from cargo-resolved versions; grows as crates are added.
+[workspace.dependencies]
+# --- Used by cli-anything-core now (the Phase B substrate) ---
+anyhow = "1.0.102"
+clap = { version = "4.6.1", features = ["derive"] }
+nu-ansi-term = "0.50.3"
+quick-xml = "0.40.1"
+reedline = "0.48.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+sha2 = "0.11.0"
+shlex = "2.0.1"
+thiserror = "2.0.18"
+wait-timeout = "0.2.1"
+# --- Reserved for later crates: scaffolder (Phase C) + proof CLIs (Phase D) ---
+base64 = "0.22.1"
+flate2 = "1.1.9"
+minijinja = "2.21.0"
+ureq = "3.3.0"

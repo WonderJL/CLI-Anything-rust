@@ -1,0 +1,236 @@
+//! Command dispatch shared by one-shot mode and the REPL.
+
+use std::path::Path;
+use std::process::ExitCode;
+
+use clap::Parser;
+use cli_anything_core::prelude::*;
+use serde::Serialize;
+
+use crate::cli::{Cli, Command, DomainCmd, ProjectCmd, SessionCmd};
+{% if with_preview %}use crate::cli::PreviewCmd;{% endif %}
+use crate::domain::project::Project;
+
+/// SKILL metadata that can't be derived from the clap tree.
+pub fn skill_meta() -> SkillMeta {
+    SkillMeta {
+        software: crate::SOFTWARE.to_string(),
+        version: crate::VERSION.to_string(),
+        description: "{{ description }}".to_string(),
+        install_hint: None,
+        prereqs: vec![crate::backend::BACKEND_BIN.to_string()],
+    }
+}
+
+/// Emit a success result (JSON envelope or a human line).
+fn ok<T: Serialize>(skin: &Skin, json: bool, action: &str, data: T, human: &str) {
+    if json {
+        Envelope::ok(action, data).print_json();
+    } else {
+        skin.success(human);
+    }
+}
+
+/// Emit an error result; returns exit code 1.
+fn emit_err(skin: &Skin, json: bool, action: &str, e: &CoreError) -> i32 {
+    if json {
+        let env: Envelope<()> = Envelope::from_core_err(action, e);
+        env.print_json();
+    } else {
+        skin.error(&e.to_string());
+    }
+    1
+}
+
+/// Emit an error and map it to a process `ExitCode` (used by `run`).
+pub fn fail(skin: &Skin, json: bool, action: &str, e: &CoreError) -> ExitCode {
+    emit_err(skin, json, action, e);
+    ExitCode::FAILURE
+}
+
+/// Dispatch a one-shot command. Returns an exit code (0 = success).
+pub fn dispatch(command: Command, session: &mut Session<Project>, skin: &Skin, json: bool) -> i32 {
+    match command {
+        Command::Project(cmd) => project(cmd, session, skin, json),
+        Command::Session(cmd) => session_cmd(cmd, session, skin, json),
+        Command::Domain(cmd) => domain(cmd, session, skin, json),
+{% if with_preview %}        Command::Preview(cmd) => preview(cmd, session, skin, json),
+{% endif %}        // Handled in `run()`; unreachable here.
+        Command::EmitSkill { .. } => 0,
+    }
+}
+
+fn project(cmd: ProjectCmd, session: &mut Session<Project>, skin: &Skin, json: bool) -> i32 {
+    match cmd {
+        ProjectCmd::New { title } => {
+            let mut p = Project::new();
+            if let Some(t) = title {
+                p.title = t;
+            }
+            session.set_state(p);
+            ok(skin, json, "project.new", session.status(), "created a new project");
+            0
+        }
+        ProjectCmd::Open { path } => match open_project::<Project>(&path) {
+            Ok(state) => {
+                session.open(state, &path);
+                ok(skin, json, "project.open", session.status(), "opened project");
+                0
+            }
+            Err(e) => emit_err(skin, json, "project.open", &e),
+        },
+        ProjectCmd::Save { output } => {
+            let path = output.or_else(|| session.project_path().map(Path::to_path_buf));
+            let Some(path) = path else {
+                skin.error("no output path; pass --output or open a project first");
+                return 1;
+            };
+            let Some(state) = session.state() else {
+                skin.error("no project is open");
+                return 1;
+            };
+            match save_project(&path, state) {
+                Ok(saved) => {
+                    session.mark_saved();
+                    ok(
+                        skin,
+                        json,
+                        "project.save",
+                        serde_json::json!({ "path": saved.display().to_string() }),
+                        "saved project",
+                    );
+                    0
+                }
+                Err(e) => emit_err(skin, json, "project.save", &e),
+            }
+        }
+        ProjectCmd::Info => {
+            ok(skin, json, "project.info", session.status(), "project info");
+            0
+        }
+    }
+}
+
+fn session_cmd(cmd: SessionCmd, session: &mut Session<Project>, skin: &Skin, json: bool) -> i32 {
+    match cmd {
+        SessionCmd::Status => {
+            ok(skin, json, "session.status", session.status(), "session status");
+            0
+        }
+        SessionCmd::Undo => {
+            if session.undo() {
+                ok(skin, json, "session.undo", session.status(), "undid last change");
+            } else {
+                skin.warning("nothing to undo");
+            }
+            0
+        }
+        SessionCmd::Redo => {
+            if session.redo() {
+                ok(skin, json, "session.redo", session.status(), "redid change");
+            } else {
+                skin.warning("nothing to redo");
+            }
+            0
+        }
+    }
+}
+
+fn domain(cmd: DomainCmd, _session: &mut Session<Project>, skin: &Skin, json: bool) -> i32 {
+    match cmd {
+        DomainCmd::Demo => {
+            ok(
+                skin,
+                json,
+                "domain.demo",
+                serde_json::json!({ "status": "stub" }),
+                "domain stub — implement real {{ software_display }} operations",
+            );
+            0
+        }
+    }
+}
+{% if with_preview %}
+fn preview(cmd: PreviewCmd, _session: &mut Session<Project>, skin: &Skin, json: bool) -> i32 {
+    use cli_anything_core::preview;
+    match cmd {
+        PreviewCmd::Recipes => {
+            ok(
+                skin,
+                json,
+                "preview.recipes",
+                serde_json::json!({ "recipes": ["quick"] }),
+                "available recipes: quick",
+            );
+            0
+        }
+        PreviewCmd::Capture { recipe } | PreviewCmd::Latest { recipe } => {
+            // TODO: render via the real backend and publish a preview-bundle/v1.
+            let _ = preview::PROTOCOL_VERSION;
+            ok(
+                skin,
+                json,
+                "preview.capture",
+                serde_json::json!({ "recipe": recipe, "status": "not-implemented" }),
+                "preview stub — wire the real backend renderer",
+            );
+            0
+        }
+    }
+}
+{% endif %}
+/// REPL handler: re-parses each line through clap and dispatches. Never auto-saves.
+pub struct Repl {
+    skin: Skin,
+    session: Session<Project>,
+    json: bool,
+}
+
+impl Repl {
+    /// Create a REPL handler.
+    pub fn new(skin: Skin, session: Session<Project>, json: bool) -> Self {
+        Self { skin, session, json }
+    }
+}
+
+impl ReplHandler for Repl {
+    fn project_label(&self) -> Option<String> {
+        self.session
+            .project_path()
+            .and_then(|p| p.file_stem())
+            .map(|s| s.to_string_lossy().into_owned())
+    }
+
+    fn modified(&self) -> bool {
+        self.session.modified()
+    }
+
+    fn handle(&mut self, args: &[String]) -> ReplOutcome {
+        match args.first().map(String::as_str) {
+            Some("quit") | Some("exit") => return ReplOutcome::Exit,
+            Some("help") => {
+                self.skin.help(&[
+                    ("project", "new / open / save / info"),
+                    ("session", "status / undo / redo"),
+                    ("domain", "demo (stub)"),
+{% if with_preview %}                    ("preview", "recipes / capture / latest"),
+{% endif %}                    ("quit", "exit the REPL"),
+                ]);
+                return ReplOutcome::Continue;
+            }
+            _ => {}
+        }
+        // Re-parse the line as a full CLI invocation (argv[0] = program name).
+        let argv = std::iter::once(crate::SOFTWARE.to_string()).chain(args.iter().cloned());
+        match Cli::try_parse_from(argv) {
+            Ok(parsed) => {
+                if let Some(command) = parsed.command {
+                    let json = self.json || parsed.json;
+                    let _ = dispatch(command, &mut self.session, &self.skin, json);
+                }
+            }
+            Err(e) => self.skin.error(&e.to_string()),
+        }
+        ReplOutcome::Continue
+    }
+}

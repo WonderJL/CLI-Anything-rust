@@ -1,0 +1,23 @@
+//! Backend integration for {{ software_display }}.
+//!
+//! Drives the *real* software via `cli-anything-core`'s safe subprocess helper
+//! (explicit args, no shell, timeout). Replace the placeholder with the actual
+//! tool invocation and output verification.
+
+use std::time::Duration;
+
+use cli_anything_core::prelude::*;
+
+/// The external tool this CLI drives. Rename to the real backend binary.
+pub const BACKEND_BIN: &str = "{{ software }}";
+
+/// Probe the backend version — demonstrates the safe-subprocess path.
+///
+/// Returns a typed [`CoreError::SubprocessNotFound`] (with an install hint) if
+/// the backend is missing, rather than a confusing OS error.
+#[allow(dead_code)]
+pub fn version() -> Result<String> {
+    require_binary(BACKEND_BIN, Some("install {{ software_display }}"))?;
+    let out = run(BACKEND_BIN, &["--version"], Duration::from_secs(30))?;
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}

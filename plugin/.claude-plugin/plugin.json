@@ -1,0 +1,7 @@
+{
+  "name": "cli-anything-rs",
+  "version": "0.1.0",
+  "description": "Build agent-native Rust CLIs for any software, following the cli-anything-rust HARNESS-rs methodology (clap + reedline + a shared, safe-by-default core crate).",
+  "author": "CLI-Anything-rust contributors",
+  "license": "Apache-2.0"
+}

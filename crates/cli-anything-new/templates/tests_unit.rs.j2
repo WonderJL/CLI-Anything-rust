@@ -1,0 +1,18 @@
+//! Unit tests for {{ software_display }} (synthetic; no external backend).
+
+use {{ crate_ident }}::domain::project::Project;
+
+#[test]
+fn new_project_is_empty() {
+    let p = Project::new();
+    assert!(p.title.is_empty());
+}
+
+#[test]
+fn project_round_trips_through_json() {
+    let mut p = Project::new();
+    p.title = "demo".to_string();
+    let json = serde_json::to_string(&p).unwrap();
+    let back: Project = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.title, "demo");
+}

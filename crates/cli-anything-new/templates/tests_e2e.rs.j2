@@ -1,0 +1,16 @@
+//! End-to-end tests against the real {{ software_display }} backend.
+//!
+//! These require the real `{{ software }}` backend installed, so they are
+//! `#[ignore]`d by default. Implement them per the cli-anything-rust test
+//! strategy: produce an artifact via the built binary, then VERIFY it
+//! (magic bytes / format / pixel or audio analysis) — never trust exit code
+//! alone.
+
+#[test]
+#[ignore = "requires the real backend; implement per-CLI"]
+fn renders_and_verifies_output() {
+    // The built binary path is available as:
+    //   let bin = env!("CARGO_BIN_EXE_{{ crate_name }}");
+    // Drive it (e.g. `project new`, then `preview capture`/an export), then
+    // assert on the produced file's magic bytes.
+}

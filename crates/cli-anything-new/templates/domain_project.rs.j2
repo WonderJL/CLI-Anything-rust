@@ -1,0 +1,20 @@
+//! Project state for {{ software_display }}.
+
+use serde::{Deserialize, Serialize};
+
+/// The domain model the agent should flesh out. A plain serde-serializable
+/// struct that `cli-anything-core` stores as JSON.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Project {
+    /// Human-readable title.
+    #[serde(default)]
+    pub title: String,
+    // TODO: add real {{ software_display }} domain fields here.
+}
+
+impl Project {
+    /// Create an empty project.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}

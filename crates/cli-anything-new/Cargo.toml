@@ -1,0 +1,19 @@
+[package]
+name = "cli-anything-new"
+description = "The CLI-Anything-rust scaffolder: stamps a compilable, agent-native CLI crate for a piece of software."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "cli-anything-new"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+minijinja = { workspace = true }

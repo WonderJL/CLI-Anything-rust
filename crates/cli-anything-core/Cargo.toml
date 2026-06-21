@@ -1,0 +1,25 @@
+[package]
+name = "cli-anything-core"
+description = "Shared substrate for CLI-Anything-rust generated CLIs: session/undo, JSON envelope, reedline skin, preview/trajectory, and safe-by-default utilities."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+# Inherited from `[workspace.dependencies]` so all crates share one pin set.
+# These are the Phase B substrate deps; module bodies that use them land in Phase B.
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+nu-ansi-term = { workspace = true }
+quick-xml = { workspace = true }
+reedline = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+shlex = { workspace = true }
+thiserror = { workspace = true }
+wait-timeout = { workspace = true }

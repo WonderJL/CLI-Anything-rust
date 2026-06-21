@@ -1,0 +1,116 @@
+//! The clap command tree. This is the single source of truth for both the CLI
+//! surface and the generated `SKILL.md` (via the hidden `emit-skill`).
+
+use std::path::PathBuf;
+
+use clap::{Parser, Subcommand};
+
+/// {{ description }}
+#[derive(Parser)]
+#[command(name = "{{ crate_name }}", version, about = "{{ description }}")]
+pub struct Cli {
+    /// Emit machine-readable JSON instead of human output.
+    #[arg(long, global = true)]
+    pub json: bool,
+
+    /// Project file to open before running the command.
+    #[arg(long, global = true)]
+    pub project: Option<PathBuf>,
+
+    /// Apply changes in memory but do not write them to disk.
+    #[arg(long, global = true)]
+    pub dry_run: bool,
+
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+/// Top-level command groups.
+#[derive(Subcommand)]
+pub enum Command {
+    /// Project lifecycle (new / open / save / info).
+    #[command(subcommand)]
+    Project(ProjectCmd),
+
+    /// Undo/redo session control.
+    #[command(subcommand)]
+    Session(SessionCmd),
+
+    /// Domain operations for {{ software_display }} (implement these).
+    #[command(subcommand)]
+    Domain(DomainCmd),
+{% if with_preview %}
+    /// Preview producer: render honest bundles from the real backend.
+    #[command(subcommand)]
+    Preview(PreviewCmd),
+{% endif %}
+    /// Regenerate SKILL.md from the command tree (hidden).
+    #[command(hide = true)]
+    EmitSkill {
+        /// Output path for the generated SKILL.md.
+        #[arg(short, long, default_value = "SKILL.md")]
+        output: PathBuf,
+    },
+}
+
+/// Project lifecycle commands.
+#[derive(Subcommand)]
+pub enum ProjectCmd {
+    /// Create a new, empty project.
+    New {
+        /// Optional project title.
+        #[arg(long)]
+        title: Option<String>,
+    },
+    /// Open an existing project file.
+    Open {
+        /// Path to the project JSON.
+        path: PathBuf,
+    },
+    /// Save the current project to disk.
+    Save {
+        /// Output path (defaults to the open project path).
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+    /// Show project + session status.
+    Info,
+}
+
+/// Undo/redo session commands.
+#[derive(Subcommand)]
+pub enum SessionCmd {
+    /// Show undo/redo status.
+    Status,
+    /// Undo the last change.
+    Undo,
+    /// Redo the last undone change.
+    Redo,
+}
+
+/// Domain commands — replace `demo` with real {{ software_display }} operations.
+#[derive(Subcommand)]
+pub enum DomainCmd {
+    /// Example domain command (stub).
+    Demo,
+}
+{% if with_preview %}
+/// Preview producer commands.
+#[derive(Subcommand)]
+pub enum PreviewCmd {
+    /// List the supported preview recipes.
+    Recipes,
+    /// Render a fresh preview bundle from the current state.
+    Capture {
+        /// Recipe name.
+        #[arg(long, default_value = "quick")]
+        recipe: String,
+    },
+    /// Return the newest existing bundle without re-rendering.
+    Latest {
+        /// Recipe name.
+        #[arg(long, default_value = "quick")]
+        recipe: String,
+    },
+}
+{% endif %}
