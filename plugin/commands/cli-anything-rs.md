@@ -1,7 +1,10 @@
 # cli-anything-rs
 
-Build a complete, agent-native **Rust** CLI harness for any software, on top of
-the shared `cli-anything-core` crate.
+**Make any software agent-native.** Build a complete Rust CLI harness for a
+piece of software — a thin, structured interface *to* the real tool (never a
+reimplementation), on top of the shared `cli-anything-core` crate. The result
+is one-shot + REPL, `--json` on every command, and a generated `SKILL.md` an
+agent can discover.
 
 ## CRITICAL: read HARNESS-rs.md first
 

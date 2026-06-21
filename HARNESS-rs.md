@@ -1,9 +1,13 @@
-# HARNESS-rs — the Rust methodology for building agent-native CLIs
+# HARNESS-rs — the standard playbook for building agent-native Rust CLIs
 
-This is the Rust adaptation of CLI-Anything's `HARNESS.md`. It defines how to
-build a **production-ready, agent-native CLI harness** for a piece of software,
-in Rust, on top of the shared [`cli-anything-core`](crates/cli-anything-core)
-crate. Follow it phase by phase — do not improvise.
+> **Today's software serves humans. Tomorrow's users will be agents.**
+
+This is the Rust adaptation of CLI-Anything's `HARNESS.md` — the standard
+operating procedure for turning a piece of real software into a
+**production-ready, agent-native CLI** on top of the shared
+[`cli-anything-core`](crates/cli-anything-core) crate. The goal is a thin,
+structured interface *to* the real tool — never a dumbed-down reimplementation.
+Follow it phase by phase; do not improvise.
 
 ## The one non-negotiable rule
 
@@ -18,7 +22,7 @@ silent fake-render fallback.
 1. **Agent brain** — this document + the `/cli-anything-rs` slash command. The
    agent reads the target software's source, designs the command surface, and
    fills domain logic.
-2. **Deterministic scaffolder** — `cli-anything new <software>` stamps a
+2. **Deterministic scaffolder** — `cli-anything-new --software <name>` stamps a
    compilable crate (clap skeleton, reedline REPL, `--json` envelope, auto-save,
    `emit-skill` hook). You never hand-write boilerplate.
 3. **Shared substrate** — `cli-anything-core`: session/undo, the `--json`
@@ -50,7 +54,8 @@ model (saved as JSON), the undo/redo on top of `core::Session`, and the `--json`
 envelope payloads. REPL is the default (no subcommand → REPL).
 
 ### Phase 3 — Implementation
-1. Run the scaffolder: `cli-anything new --software <name> [--no-preview]`.
+1. Run the scaffolder: `cli-anything-new --software <name> [--no-preview]`
+   (or `cargo run -p cli-anything-new -- --software <name>`).
 2. Fill **only** the domain logic:
    - `src/domain/*` — the state model + operations (serde structs).
    - `src/cli.rs` — the real clap command tree.
