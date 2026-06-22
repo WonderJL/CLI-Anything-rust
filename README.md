@@ -6,7 +6,7 @@ Turn real software into agent-native CLIs — in Rust, with memory safety and sa
 <p align="center">
   <img src="https://img.shields.io/badge/Rust-1.89-orange?logo=rust&logoColor=white" alt="Rust 1.89">
   <img src="https://img.shields.io/badge/unsafe-forbidden-success" alt="forbid(unsafe_code)">
-  <img src="https://img.shields.io/badge/tests-88_passing_+_4_gated-brightgreen" alt="tests">
+  <img src="https://img.shields.io/badge/tests-91_passing_+_7_gated_(E2E_proven)-brightgreen" alt="tests">
   <img src="https://img.shields.io/badge/gate-build·clippy·fmt·deny-blue" alt="gate">
   <img src="https://img.shields.io/badge/supply_chain-cargo--deny-blueviolet" alt="cargo-deny">
   <img src="https://img.shields.io/badge/output-JSON_+_Human-9cf" alt="output">
@@ -125,21 +125,21 @@ $ cli-anything-inkscape --json document import billion-laughs.svg
 <tr><th>CLI</th><th>What it proves</th><th>Backend</th></tr>
 <tr>
 <td><b><code>cli-anything-mermaid</code></b></td>
-<td>The full pipeline end-to-end: author a diagram, render it, and <b>verify the output by magic bytes</b>. One-shot + REPL, <code>--json</code> everywhere, auto-save + <code>--dry-run</code>.</td>
-<td>local <code>mmdc</code> → HTTP fallback to mermaid.ink (pako-encoded). <i>Verified live: real SVG + PNG rendered and magic-byte-checked.</i></td>
+<td>The full pipeline end-to-end: author a diagram, render it, and <b>verify the output by magic bytes</b>. One-shot + REPL, <code>--json</code> everywhere, auto-save + <code>--dry-run</code>. Wires the <b>preview subsystem</b>: <code>preview capture</code> renders into an immutable, content-addressed bundle and advances a live session + trajectory an agent can poll cheaply.</td>
+<td>local <code>mmdc</code> → HTTP fallback to mermaid.ink (pako-encoded). <i>Verified live: real SVG + PNG + a full preview round-trip rendered and magic-byte-checked.</i></td>
 </tr>
 <tr>
 <td><b><code>cli-anything-inkscape</code></b></td>
 <td>The pipeline <b>plus the security showcase</b>: a full SVG document model (shapes/text/style/transform/layers/gradients), SVG built via the <code>quick-xml</code> writer (untrusted text escaped), and <b>safe import of untrusted SVG</b> (rejects DOCTYPE/billion-laughs/SSRF).</td>
-<td>real <code>inkscape</code> for PNG/PDF (no fallback — fails loudly if absent).</td>
+<td>real <code>inkscape</code> (default) or librsvg's <code>rsvg-convert</code> (<code>--renderer rsvg</code>) for PNG/PDF — a real, selectable alternative renderer, never a fake fallback. Fails loudly if the chosen backend is absent. <i>Verified live via rsvg.</i></td>
 </tr>
 </table>
 
 <details>
 <summary>Command surfaces</summary>
 
-- **mermaid** — `project new|open|save|info|samples` · `diagram set|show` · `export render|share` · `session status|undo|redo` · (bare → REPL) · hidden `emit-skill`.
-- **inkscape** — `document new|open|save|info|json|canvas-size|units|import` · `shape add-rect|add-circle|add-ellipse|add-line|add-polygon|add-path|add-star|remove|duplicate|list|get` · `text add|list` · `style set-fill|set-stroke|set-opacity|get` · `transform translate|rotate|scale|get|clear` · `layer add|list|move-object` · `gradient add-linear|add-radial|apply|list` · `path list-operations|convert|union|difference` · `export svg|png|pdf|presets` · `session status|undo|redo|history` · (bare → REPL) · hidden `emit-skill`.
+- **mermaid** — `project new|open|save|info|samples` · `diagram set|show` · `export render|share` · `preview capture|status|list` · `session status|undo|redo` · (bare → REPL) · hidden `emit-skill`.
+- **inkscape** — `document new|open|save|info|json|canvas-size|units|import` · `shape add-rect|add-circle|add-ellipse|add-line|add-polygon|add-path|add-star|remove|duplicate|list|get` · `text add|list` · `style set-fill|set-stroke|set-opacity|get` · `transform translate|rotate|scale|get|clear` · `layer add|list|move-object` · `gradient add-linear|add-radial|apply|list` · `path list-operations|convert|union|difference` · `export svg|png|pdf|presets` (png/pdf take `--renderer inkscape|rsvg`) · `session status|undo|redo|history` · (bare → REPL) · hidden `emit-skill`.
 </details>
 
 ## Core design principles
@@ -179,8 +179,9 @@ Load the [`plugin/`](plugin) directory as a Claude Code plugin, then:
 
 ```bash
 scripts/check.sh                       # build + clippy -D warnings + fmt + cargo-deny
-cargo test --workspace                 # 88 offline tests
-cargo test --workspace -- --ignored    # 4 E2E: 2 mermaid pass live; 2 inkscape need a working local binary
+cargo test --workspace                 # 91 offline tests
+cargo test --workspace -- --ignored    # 7 E2E: mermaid render (2) + preview round-trip (1) pass live;
+                                       #        inkscape rsvg PNG/PDF (2) pass live; inkscape-native PNG/PDF (2) need a working local inkscape
 ```
 
 `cargo-deny` is required for the gate: `brew install cargo-deny` (or `cargo install cargo-deny --locked`).
@@ -188,18 +189,20 @@ Distribution is local-only for now (`cargo install --path …`); crate metadata 
 
 ## Status, limitations & roadmap
 
-**Status:** the factory + both proof CLIs are complete; the gate (build · clippy `-D warnings` · fmt · cargo-deny) is green with **88 offline tests passing**. Four more E2E tests are gated behind `--ignored`: the 2 mermaid render tests pass live (via mermaid.ink), and the 2 inkscape PNG/PDF tests need a working local `inkscape`.
+**Status:** the factory + both proof CLIs are complete; the gate (build · clippy `-D warnings` · fmt · cargo-deny) is green with **91 offline tests passing**. Seven more E2E tests are gated behind `--ignored` and **all the runnable ones pass live**: mermaid render (SVG + PNG) and the full preview round-trip pass via mermaid.ink; inkscape PNG/PDF export passes via the real `rsvg-convert`. The 2 inkscape-native (Inkscape binary) E2E tests remain gated because the local Inkscape cask is broken here.
 
 Honest limitations (this is a proof, not the upstream ecosystem):
 
 - [x] Shared core, scaffolder, and **2** reference CLIs — **not** a 26-CLI catalog.
-- [ ] **PNG/PDF export E2E is gated** — the local `inkscape` binary is broken here, so those 2 E2E tests are `#[ignore]`d (the code path exists and verifies magic bytes when inkscape works; SVG export + the security import *do* run live).
-- [ ] **mermaid `mmdc` path needs a browser** — without one, rendering uses the HTTP fallback (mermaid.ink); both paths are implemented.
+- [x] **Real-backend export E2E is proven** — SVG→PNG/PDF runs live through the real `rsvg-convert` (librsvg) backend and is verified by magic bytes.
+- [ ] **inkscape-native PNG/PDF E2E is gated** — the local Inkscape cask is broken (its wrapper points at a missing binary), so the 2 Inkscape-specific E2E tests are `#[ignore]`d. The code path exists and verifies magic bytes; `--renderer rsvg` is the proven path here.
+- [ ] **mermaid `mmdc` path needs a browser** — without one, rendering uses the HTTP fallback (mermaid.ink); both paths are implemented and the fallback is exercised live.
 - [ ] **Path-boolean geometry is a recorded stub** — true 2D geometry needs a geometry backend (out of scope for the proof).
-- [ ] **Preview/trajectory subsystem** is fully implemented + tested in core, but neither proof CLI wires its command group yet.
+- [x] **Preview/trajectory subsystem is wired into `cli-anything-mermaid`** (`preview capture|status|list`) on top of the core bundle/session/trajectory layer; inkscape does not expose it yet.
+- [ ] **No CI** — the gate runs locally (`scripts/check.sh`), not yet on every push.
 - [ ] **crates.io publishing deferred** (`publish = false`); a `cli-hub`-style consumer is documented, not built.
 
-Roadmap: wire the preview group into a proof CLI · add more reference CLIs to stress generality · real path-boolean geometry · publish once the API settles.
+Roadmap: add CI to enforce the gate on push · fix/containerize Inkscape to un-gate the native export E2E · wire the preview group into inkscape too · add more reference CLIs to stress generality · real path-boolean geometry · publish once the API settles.
 
 ## Credits & prior art
 

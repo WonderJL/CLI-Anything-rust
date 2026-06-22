@@ -44,6 +44,10 @@ pub enum Command {
     #[command(subcommand)]
     Export(ExportCmd),
 
+    /// Capture immutable preview bundles + a live session for an agent to poll.
+    #[command(subcommand)]
+    Preview(PreviewCmd),
+
     /// Undo/redo session control.
     #[command(subcommand)]
     Session(SessionCmd),
@@ -123,6 +127,40 @@ pub enum ExportCmd {
         /// Editor or read-only view.
         #[arg(long, value_enum, default_value_t = ShareMode::Edit)]
         mode: ShareMode,
+    },
+}
+
+/// Preview-bundle commands: render into an immutable, content-addressed bundle,
+/// track a live session head, and append to a replayable trajectory.
+#[derive(Subcommand)]
+pub enum PreviewCmd {
+    /// Render the current diagram into an immutable preview bundle and advance
+    /// the live session (reuses a cached bundle when the source is unchanged).
+    Capture {
+        /// Format to render into the bundle.
+        #[arg(short, long, value_enum, default_value_t = Format::Svg)]
+        format: Format,
+        /// Recipe name — groups bundles and the live session.
+        #[arg(long, default_value = "default")]
+        recipe: String,
+        /// Force a fresh bundle even if an identical one is cached.
+        #[arg(long)]
+        force: bool,
+    },
+    /// Print the live preview status — the cheap agent poll (`--json`).
+    Status {
+        /// Recipe name to inspect.
+        #[arg(long, default_value = "default")]
+        recipe: String,
+        /// How many recent trajectory steps to include.
+        #[arg(long, default_value_t = 5)]
+        recent: usize,
+    },
+    /// List the preview bundles for a recipe (newest first).
+    List {
+        /// Recipe name.
+        #[arg(long, default_value = "default")]
+        recipe: String,
     },
 }
 

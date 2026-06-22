@@ -101,12 +101,13 @@ pub fn emit_skill(cmd: &Command, meta: &SkillMeta) -> String {
     );
 
     if has_preview {
-        out.push_str("## Preview (producer/consumer)\n\n");
+        out.push_str("## Preview\n\n");
         out.push_str(
-            "- This CLI is the **producer**: `... preview capture|latest|recipes [live ...]` \
-             renders honest bundles from the real backend.\n\
-             - Inspection is a separate read-only **consumer** role (`cli-hub previews ...`).\n\
-             - Poll cheaply with `preview live status --json` (compact `trajectory_summary`).\n\n",
+            "- `preview capture` renders an honest, content-addressed bundle from the real \
+             backend and advances a live session (identical source reuses the cached bundle).\n\
+             - Poll cheaply with `preview status --json` — a compact `trajectory_summary` plus the \
+             current bundle, without reading every step.\n\
+             - Enumerate a recipe's bundles (newest first) with `preview list --json`.\n\n",
         );
     }
 
@@ -198,7 +199,9 @@ mod tests {
             .subcommand(
                 Command::new("preview")
                     .about("Render preview bundles")
-                    .subcommand(Command::new("capture").about("Render a bundle")),
+                    .subcommand(Command::new("capture").about("Render a bundle"))
+                    .subcommand(Command::new("status").about("Live preview status"))
+                    .subcommand(Command::new("list").about("List bundles")),
             )
             .subcommand(Command::new("emit-skill").hide(true))
     }
@@ -234,8 +237,14 @@ mod tests {
     #[test]
     fn preview_section_present_when_group_exists() {
         let md = emit_skill(&synthetic(), &meta());
-        assert!(md.contains("## Preview (producer/consumer)"));
-        assert!(md.contains("preview live status --json"));
+        assert!(md.contains("## Preview"));
+        // The guidance must name only commands that actually exist.
+        assert!(md.contains("preview status --json"));
+        assert!(md.contains("preview list --json"));
+        assert!(md.contains("preview capture"));
+        assert!(!md.contains("preview live status"));
+        assert!(!md.contains("preview latest"));
+        assert!(!md.contains("preview recipes"));
     }
 
     #[test]

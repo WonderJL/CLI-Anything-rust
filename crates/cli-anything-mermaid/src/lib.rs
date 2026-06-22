@@ -7,6 +7,7 @@
 pub mod backend;
 pub mod cli;
 pub mod domain;
+pub mod preview_cmd;
 pub mod repl_cmds;
 
 use std::process::ExitCode;

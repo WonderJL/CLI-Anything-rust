@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 /// Agent-native CLI for Inkscape SVG documents.
 #[derive(Parser)]
@@ -250,13 +250,13 @@ pub enum PathCmd {
 
 #[derive(Subcommand)]
 pub enum ExportCmd {
-    /// Export to SVG (generated locally; no inkscape needed).
+    /// Export to SVG (generated locally; no renderer needed).
     Svg {
         output: PathBuf,
         #[arg(long)]
         overwrite: bool,
     },
-    /// Export to PNG via the real inkscape.
+    /// Export to PNG via a real renderer (default inkscape; rsvg also supported).
     Png {
         output: PathBuf,
         #[arg(long, default_value_t = 96)]
@@ -265,17 +265,42 @@ pub enum ExportCmd {
         width: Option<u32>,
         #[arg(short = 'H', long)]
         height: Option<u32>,
+        /// Which real renderer to drive.
+        #[arg(long, value_enum, default_value_t = Renderer::Inkscape)]
+        renderer: Renderer,
         #[arg(long)]
         overwrite: bool,
     },
-    /// Export to PDF via the real inkscape.
+    /// Export to PDF via a real renderer (default inkscape; rsvg also supported).
     Pdf {
         output: PathBuf,
+        /// Which real renderer to drive.
+        #[arg(long, value_enum, default_value_t = Renderer::Inkscape)]
+        renderer: Renderer,
         #[arg(long)]
         overwrite: bool,
     },
     /// List export presets.
     Presets,
+}
+
+/// Which real external renderer drives a raster/vector export.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum Renderer {
+    /// The real Inkscape binary (full SVG feature fidelity).
+    Inkscape,
+    /// librsvg's `rsvg-convert` (no Inkscape install required).
+    Rsvg,
+}
+
+impl Renderer {
+    /// Lowercase name (for envelopes / logs).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Renderer::Inkscape => "inkscape",
+            Renderer::Rsvg => "rsvg",
+        }
+    }
 }
 
 #[derive(Subcommand)]

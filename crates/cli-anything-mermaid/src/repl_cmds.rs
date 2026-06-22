@@ -8,8 +8,9 @@ use cli_anything_core::prelude::*;
 use serde::Serialize;
 
 use crate::backend;
-use crate::cli::{Cli, Command, DiagramCmd, ExportCmd, ProjectCmd, SessionCmd};
+use crate::cli::{Cli, Command, DiagramCmd, ExportCmd, PreviewCmd, ProjectCmd, SessionCmd};
 use crate::domain::project::{self, Project};
+use crate::preview_cmd;
 
 /// SKILL metadata that can't be derived from the clap tree.
 pub fn skill_meta() -> SkillMeta {
@@ -62,6 +63,7 @@ pub fn dispatch(command: Command, session: &mut Session<Project>, skin: &Skin, j
         Command::Project(cmd) => project_cmd(cmd, session, skin, json),
         Command::Diagram(cmd) => diagram_cmd(cmd, session, skin, json),
         Command::Export(cmd) => export_cmd(cmd, session, skin, json),
+        Command::Preview(cmd) => preview_cmd_dispatch(cmd, session, skin, json),
         Command::Session(cmd) => session_cmd(cmd, session, skin, json),
         Command::EmitSkill { .. } => 0, // handled in run()
     }
@@ -248,6 +250,84 @@ fn export_cmd(cmd: ExportCmd, session: &mut Session<Project>, skin: &Skin, json:
     }
 }
 
+fn preview_cmd_dispatch(
+    cmd: PreviewCmd,
+    session: &mut Session<Project>,
+    skin: &Skin,
+    json: bool,
+) -> i32 {
+    // The preview root is anchored to the open project's path (else $HOME). Clone
+    // it first so the immutable borrow ends before we borrow `state()`.
+    let project_path = session.project_path().map(Path::to_path_buf);
+    match cmd {
+        PreviewCmd::Capture {
+            format,
+            recipe,
+            force,
+        } => {
+            let Some(project) = session.state() else {
+                return msg_err(
+                    skin,
+                    json,
+                    "preview.capture",
+                    "no_project",
+                    "no project is open",
+                );
+            };
+            match preview_cmd::capture(project, project_path.as_deref(), &recipe, format, force) {
+                Ok(result) => {
+                    let human = if result.cached {
+                        format!("preview cache hit: bundle {}", result.bundle_id)
+                    } else {
+                        format!(
+                            "captured {} preview: bundle {} ({})",
+                            result.format,
+                            result.bundle_id,
+                            result.render_method.as_deref().unwrap_or("?"),
+                        )
+                    };
+                    ok(skin, json, "preview.capture", result, &human);
+                    0
+                }
+                Err(e) => msg_err(
+                    skin,
+                    json,
+                    "preview.capture",
+                    "preview_error",
+                    &e.to_string(),
+                ),
+            }
+        }
+        PreviewCmd::Status { recipe, recent } => {
+            match preview_cmd::status(project_path.as_deref(), &recipe, recent) {
+                Ok(status) => {
+                    let human = format!(
+                        "preview {} ({} steps)",
+                        status.status, status.trajectory_summary.step_count
+                    );
+                    ok(skin, json, "preview.status", status, &human);
+                    0
+                }
+                Err(e) => msg_err(
+                    skin,
+                    json,
+                    "preview.status",
+                    "preview_error",
+                    &e.to_string(),
+                ),
+            }
+        }
+        PreviewCmd::List { recipe } => match preview_cmd::list(project_path.as_deref(), &recipe) {
+            Ok(listing) => {
+                let human = format!("{} bundle(s) in {}", listing.count, listing.root);
+                ok(skin, json, "preview.list", listing, &human);
+                0
+            }
+            Err(e) => msg_err(skin, json, "preview.list", "preview_error", &e.to_string()),
+        },
+    }
+}
+
 fn session_cmd(cmd: SessionCmd, session: &mut Session<Project>, skin: &Skin, json: bool) -> i32 {
     match cmd {
         SessionCmd::Status => {
@@ -323,6 +403,7 @@ impl ReplHandler for Repl {
                     ("project", "new / open / save / info / samples"),
                     ("diagram", "set --text|--file / show"),
                     ("export", "render <out> [-f svg|png] / share"),
+                    ("preview", "capture [-f svg|png] / status / list"),
                     ("session", "status / undo / redo"),
                     ("quit", "exit the REPL"),
                 ]);

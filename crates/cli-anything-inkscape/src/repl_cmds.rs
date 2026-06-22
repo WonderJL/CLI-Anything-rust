@@ -9,8 +9,8 @@ use serde::Serialize;
 
 use crate::backend;
 use crate::cli::{
-    Cli, Command, DocumentCmd, ExportCmd, GradientCmd, LayerCmd, PathCmd, SessionCmd, ShapeCmd,
-    StyleCmd, TextCmd, TransformCmd,
+    Cli, Command, DocumentCmd, ExportCmd, GradientCmd, LayerCmd, PathCmd, Renderer, SessionCmd,
+    ShapeCmd, StyleCmd, TextCmd, TransformCmd,
 };
 use crate::domain::project::{Gradient, GradientStop, Project, Shape};
 
@@ -815,33 +815,60 @@ fn export(cmd: ExportCmd, session: &mut Session<Project>, skin: &Skin, json: boo
             dpi,
             width,
             height,
+            renderer,
             overwrite,
         } => {
-            match backend::export_via_inkscape(
-                project, &output, "png", dpi, width, height, overwrite,
-            ) {
+            let result = match renderer {
+                Renderer::Inkscape => backend::export_via_inkscape(
+                    project, &output, "png", dpi, width, height, overwrite,
+                ),
+                Renderer::Rsvg => {
+                    backend::export_via_rsvg(project, &output, "png", dpi, width, height, overwrite)
+                }
+            };
+            match result {
                 Ok(size) => {
                     ok(
                         skin,
                         json,
                         "export.png",
-                        serde_json::json!({ "output": output.display().to_string(), "format": "png", "file_size": size }),
-                        &format!("wrote {} ({size} bytes)", output.display()),
+                        serde_json::json!({ "output": output.display().to_string(), "format": "png", "file_size": size, "renderer": renderer.as_str() }),
+                        &format!(
+                            "wrote {} ({size} bytes) via {}",
+                            output.display(),
+                            renderer.as_str()
+                        ),
                     );
                     0
                 }
                 Err(e) => msg_err(skin, json, "export.png", "export_error", &e.to_string()),
             }
         }
-        ExportCmd::Pdf { output, overwrite } => {
-            match backend::export_via_inkscape(project, &output, "pdf", 96, None, None, overwrite) {
+        ExportCmd::Pdf {
+            output,
+            renderer,
+            overwrite,
+        } => {
+            let result = match renderer {
+                Renderer::Inkscape => {
+                    backend::export_via_inkscape(project, &output, "pdf", 96, None, None, overwrite)
+                }
+                Renderer::Rsvg => {
+                    backend::export_via_rsvg(project, &output, "pdf", 96, None, None, overwrite)
+                }
+            };
+            match result {
                 Ok(size) => {
                     ok(
                         skin,
                         json,
                         "export.pdf",
-                        serde_json::json!({ "output": output.display().to_string(), "format": "pdf", "file_size": size }),
-                        &format!("wrote {} ({size} bytes)", output.display()),
+                        serde_json::json!({ "output": output.display().to_string(), "format": "pdf", "file_size": size, "renderer": renderer.as_str() }),
+                        &format!(
+                            "wrote {} ({size} bytes) via {}",
+                            output.display(),
+                            renderer.as_str()
+                        ),
                     );
                     0
                 }

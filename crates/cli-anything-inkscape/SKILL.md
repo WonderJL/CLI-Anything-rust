@@ -189,17 +189,19 @@ Path operations
 
 Export to SVG / PNG / PDF
 
-- `export svg` — Export to SVG (generated locally; no inkscape needed)
+- `export svg` — Export to SVG (generated locally; no renderer needed)
   - `<OUTPUT>` (required)
   - `--overwrite`
-- `export png` — Export to PNG via the real inkscape
+- `export png` — Export to PNG via a real renderer (default inkscape; rsvg also supported)
   - `<OUTPUT>` (required)
   - `--dpi <DPI>`
   - `--width <WIDTH>`
   - `--height <HEIGHT>`
+  - `--renderer <RENDERER>` — Which real renderer to drive
   - `--overwrite`
-- `export pdf` — Export to PDF via the real inkscape
+- `export pdf` — Export to PDF via a real renderer (default inkscape; rsvg also supported)
   - `<OUTPUT>` (required)
+  - `--renderer <RENDERER>` — Which real renderer to drive
   - `--overwrite`
 - `export presets` — List export presets
 

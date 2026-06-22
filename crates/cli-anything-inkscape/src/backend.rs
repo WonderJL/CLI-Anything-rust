@@ -1,9 +1,11 @@
 //! Inkscape rendering backend + safe SVG import.
 //!
 //! - SVG export is generated locally (no inkscape needed) from the model.
-//! - PNG / PDF / EPS export shells out to the **real `inkscape`** (no fallback —
-//!   the real software is the renderer, per the HARNESS rule). A missing/broken
-//!   binary yields a typed error.
+//! - PNG / PDF / EPS export shells out to a **real renderer** (no silent fake
+//!   fallback — the real software does the rasterization, per the HARNESS rule).
+//!   The default renderer is the real `inkscape`; `rsvg-convert` (librsvg) is a
+//!   selectable real alternative for hosts without Inkscape. A missing/broken
+//!   binary yields a typed error with an install hint.
 //! - SVG *import* routes untrusted input through
 //!   [`cli_anything_core::security::xml::read_svg_safely`] — the security showcase.
 
@@ -12,13 +14,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
-use cli_anything_core::prelude::{read_svg_safely, require_binary, run};
+use cli_anything_core::prelude::{find_binary, read_svg_safely, require_binary, run};
 
 use crate::domain::project::Project;
 use crate::domain::svg::to_svg;
 
-/// The real renderer binary.
+/// The default real renderer binary.
 pub const INKSCAPE_BIN: &str = "inkscape";
+/// The alternative real renderer (librsvg) for hosts without Inkscape.
+pub const RSVG_BIN: &str = "rsvg-convert";
 const EXPORT_TIMEOUT: Duration = Duration::from_secs(60);
 
 fn guard_overwrite(out: &Path, overwrite: bool) -> Result<()> {
@@ -91,6 +95,70 @@ pub fn export_via_inkscape(
         bail!("exported {format} failed magic-byte verification");
     }
     Ok(bytes.len() as u64)
+}
+
+/// Raster/vector export via the real `rsvg-convert` (librsvg). `format` is
+/// `png`/`pdf`. A selectable real alternative to inkscape on hosts where
+/// Inkscape isn't installed; output is still verified by magic bytes.
+pub fn export_via_rsvg(
+    project: &Project,
+    out: &Path,
+    format: &str,
+    dpi: u32,
+    width: Option<u32>,
+    height: Option<u32>,
+    overwrite: bool,
+) -> Result<u64> {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    guard_overwrite(out, overwrite)?;
+    require_binary(
+        RSVG_BIN,
+        Some("install librsvg (`brew install librsvg` / `apt install librsvg2-bin`)"),
+    )?;
+
+    let svg = to_svg(project)?;
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let tmp = std::env::temp_dir().join(format!("rsvg-{}-{seq}.svg", std::process::id()));
+    std::fs::write(&tmp, &svg)?;
+
+    let dpi_s = dpi.to_string();
+    let out_s = out.display().to_string();
+    let tmp_s = tmp.to_string_lossy().into_owned();
+    let mut args: Vec<String> = vec![
+        "--format".into(),
+        format.to_string(),
+        "--dpi-x".into(),
+        dpi_s.clone(),
+        "--dpi-y".into(),
+        dpi_s,
+        "--output".into(),
+        out_s,
+    ];
+    if let Some(w) = width {
+        args.push("--width".into());
+        args.push(w.to_string());
+    }
+    if let Some(h) = height {
+        args.push("--height".into());
+        args.push(h.to_string());
+    }
+    args.push(tmp_s);
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+
+    let result = run(RSVG_BIN, &arg_refs, EXPORT_TIMEOUT);
+    let _ = std::fs::remove_file(&tmp);
+    result?; // CoreError → anyhow (missing/failed rsvg-convert surfaces here)
+
+    let bytes = std::fs::read(out).with_context(|| format!("reading {}", out.display()))?;
+    if !verify_format(&bytes, format) {
+        bail!("exported {format} failed magic-byte verification");
+    }
+    Ok(bytes.len() as u64)
+}
+
+/// Whether the `rsvg-convert` binary is available.
+pub fn has_rsvg() -> bool {
+    find_binary(RSVG_BIN).is_some()
 }
 
 /// Safely read an untrusted SVG file (the security showcase). Returns the

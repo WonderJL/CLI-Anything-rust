@@ -58,6 +58,20 @@ Render and share the diagram
 - `export share` — Build a mermaid.live share URL (no network)
   - `--mode <MODE>` — Editor or read-only view
 
+### preview
+
+Capture immutable preview bundles + a live session for an agent to poll
+
+- `preview capture` — Render the current diagram into an immutable preview bundle and advance the live session (reuses a cached bundle when the source is unchanged)
+  - `--format <FORMAT>` — Format to render into the bundle
+  - `--recipe <RECIPE>` — Recipe name — groups bundles and the live session
+  - `--force` — Force a fresh bundle even if an identical one is cached
+- `preview status` — Print the live preview status — the cheap agent poll (`--json`)
+  - `--recipe <RECIPE>` — Recipe name to inspect
+  - `--recent <RECENT>` — How many recent trajectory steps to include
+- `preview list` — List the preview bundles for a recipe (newest first)
+  - `--recipe <RECIPE>` — Recipe name
+
 ### session
 
 Undo/redo session control
@@ -73,4 +87,10 @@ Undo/redo session control
 - On error, read `error.kind` (stable) and `error.hint`.
 - Use absolute paths for `--project` and outputs.
 - Verify produced files (e.g. magic bytes) rather than trusting exit code alone.
+
+## Preview
+
+- `preview capture` renders an honest, content-addressed bundle from the real backend and advances a live session (identical source reuses the cached bundle).
+- Poll cheaply with `preview status --json` — a compact `trajectory_summary` plus the current bundle, without reading every step.
+- Enumerate a recipe's bundles (newest first) with `preview list --json`.
 
